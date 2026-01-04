@@ -74,8 +74,101 @@ export interface Coach {
     available: boolean;
 }
 
+// Booking types
+export interface Booking {
+    id: string;
+    coach_id: string;
+    user_id: string;
+    date: string;
+    time: string;
+    duration: number; // in minutes
+    status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+    payment_status: 'pending' | 'paid' | 'refunded';
+    total_amount: number;
+    created_at: string;
+}
+
+export interface BookingRequest {
+    coach_id: string;
+    date: string;
+    time: string;
+    duration: number;
+}
+
+export interface TimeSlot {
+    time: string;
+    available: boolean;
+}
+
+export interface AvailabilityResponse {
+    date: string;
+    slots: TimeSlot[];
+}
+
+// Review types
+export interface Review {
+    id: string;
+    coach_id: string;
+    user_id: string;
+    user_email?: string;
+    rating: number;
+    comment: string;
+    created_at: string;
+}
+
+export interface ReviewRequest {
+    coach_id: string;
+    booking_id: string;
+    rating: number;
+    comment: string;
+}
+
+// Payment types
+export interface PaymentIntent {
+    client_secret: string;
+    amount: number;
+    currency: string;
+}
+
+// Subscription types
+export type SubscriptionTier = 'free' | 'pro' | 'premium';
+
+export interface Subscription {
+    id: string;
+    user_id: string;
+    tier: SubscriptionTier;
+    status: 'active' | 'canceled' | 'past_due' | 'trialing';
+    current_period_start: string;
+    current_period_end: string;
+    cancel_at_period_end: boolean;
+    stripe_customer_id?: string;
+    stripe_subscription_id?: string;
+}
+
+export interface PricingPlan {
+    id: string;
+    name: string;
+    tier: SubscriptionTier;
+    price: number;
+    interval: 'month' | 'year';
+    features: string[];
+    highlighted?: boolean;
+    stripe_price_id: string;
+}
+
+export interface BillingHistory {
+    id: string;
+    amount: number;
+    currency: string;
+    status: 'paid' | 'pending' | 'failed';
+    description: string;
+    invoice_url?: string;
+    created_at: string;
+}
+
 // API Error type
 export interface ApiError {
     detail: string;
     status_code?: number;
 }
+

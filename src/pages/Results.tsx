@@ -1,25 +1,65 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useMatches } from '../hooks/useMatches';
+import { api } from '../services/api';
 import { LoadingSpinner } from '../components/LoadingSpinner';
-import type { AnalysisInsight } from '../types';
+import { MetricsDisplay } from '../components/MetricsDisplay';
+import { Charts } from '../components/Charts';
+import { AdviceList } from '../components/AdviceList';
+
+interface Match {
+    id: number;
+    hero: string;
+    duration: number;
+    result?: 'win' | 'loss';
+    metrics: Record<string, number>;
+    advice: Advice[];
+    created_at: string;
+}
+
+interface Advice {
+    id?: string | number;
+    category: string;
+    title: string;
+    description: string;
+    priority: 'low' | 'medium' | 'high';
+    type?: 'tip' | 'improvement' | 'strength' | 'weakness';
+}
 
 export const Results = () => {
     const { matchId } = useParams<{ matchId: string }>();
-    const { currentAnalysis, loading, error, fetchAnalysis } = useMatches();
+    const [match, setMatch] = useState<Match | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
+        const fetchMatch = async () => {
+            try {
+                const { data } = await api.get(`/api/matches/${matchId}`);
+                setMatch(data);
+            } catch (err: unknown) {
+                const message = extractErrorMessage(err, 'Failed to load match');
+                setError(message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
         if (matchId) {
-            fetchAnalysis(matchId);
+            fetchMatch();
         }
-    }, [matchId, fetchAnalysis]);
+    }, [matchId]);
+
+    const handleExportPDF = () => {
+        // PDF export logic - could use jsPDF or call backend
+        window.print();
+    };
 
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-900 flex items-center justify-center pt-16">
                 <div className="text-center">
                     <LoadingSpinner size="lg" className="mb-4" />
-                    <p className="text-gray-400">Loading analysis...</p>
+                    <p className="text-gray-400 text-lg">Analyzing your match...</p>
                 </div>
             </div>
         );
@@ -27,16 +67,16 @@ export const Results = () => {
 
     if (error) {
         return (
-            <div className="min-h-screen bg-gray-900 flex items-center justify-center pt-16">
-                <div className="text-center">
-                    <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="min-h-screen bg-gray-900 flex items-center justify-center pt-16 px-4">
+                <div className="text-center max-w-md">
+                    <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                     </div>
-                    <h2 className="text-xl font-bold text-white mb-2">Failed to Load Analysis</h2>
-                    <p className="text-gray-400 mb-6">{error}</p>
-                    <Link to="/upload" className="btn-primary">
+                    <h2 className="text-2xl font-bold text-white mb-3">Failed to Load Analysis</h2>
+                    <p className="text-gray-400 mb-8">{error}</p>
+                    <Link to="/upload" className="btn-primary inline-block">
                         Upload Another Replay
                     </Link>
                 </div>
@@ -44,12 +84,18 @@ export const Results = () => {
         );
     }
 
-    if (!currentAnalysis) {
+    if (!match) {
         return (
-            <div className="min-h-screen bg-gray-900 flex items-center justify-center pt-16">
-                <div className="text-center">
-                    <p className="text-gray-400">No analysis data available</p>
-                    <Link to="/upload" className="btn-primary mt-4 inline-block">
+            <div className="min-h-screen bg-gray-900 flex items-center justify-center pt-16 px-4">
+                <div className="text-center max-w-md">
+                    <div className="w-20 h-20 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <svg className="w-10 h-10 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M12 12h.01M12 12h-.01" />
+                        </svg>
+                    </div>
+                    <h2 className="text-2xl font-bold text-white mb-3">Match Not Found</h2>
+                    <p className="text-gray-400 mb-8">The match you're looking for doesn't exist or has been removed.</p>
+                    <Link to="/upload" className="btn-primary inline-block">
                         Upload a Replay
                     </Link>
                 </div>
@@ -57,53 +103,78 @@ export const Results = () => {
         );
     }
 
-    const analysis = currentAnalysis;
-    const isWin = analysis.result === 'win';
+    const isWin = match.result === 'win';
+    const durationMinutes = Math.floor(match.duration / 60);
+    const durationSeconds = match.duration % 60;
 
     return (
         <div className="min-h-screen bg-gray-900 pt-24 pb-12 px-4">
-            <div className="max-w-5xl mx-auto">
+            <div className="max-w-6xl mx-auto">
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-10">
                     <div>
-                        <h1 className="text-3xl font-bold text-white mb-2">Match Analysis</h1>
-                        <p className="text-gray-400">Hero: {analysis.hero}</p>
-                    </div>
-                    <div className={`px-6 py-3 rounded-lg font-bold text-lg ${isWin ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                        {isWin ? 'VICTORY' : 'DEFEAT'}
-                    </div>
-                </div>
-
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
-                    <StatCard label="Duration" value={formatDuration(analysis.duration)} />
-                    <StatCard label="Kills" value={analysis.kills} highlight />
-                    <StatCard label="Deaths" value={analysis.deaths} />
-                    <StatCard label="Assists" value={analysis.assists} highlight />
-                    <StatCard label="GPM" value={analysis.gpm} />
-                    <StatCard label="XPM" value={analysis.xpm} />
-                    <StatCard label="Last Hits" value={analysis.last_hits} />
-                    <StatCard label="Denies" value={analysis.denies} />
-                </div>
-
-                {/* Insights */}
-                {analysis.insights && analysis.insights.length > 0 && (
-                    <div className="mb-8">
-                        <h2 className="text-2xl font-bold text-white mb-6">Insights & Recommendations</h2>
-                        <div className="space-y-4">
-                            {analysis.insights.map((insight, index) => (
-                                <InsightCard key={index} insight={insight} />
-                            ))}
+                        <div className="flex items-center gap-4 mb-3">
+                            <h1 className="text-4xl font-bold text-white">{match.hero}</h1>
+                            {match.result && (
+                                <span className={`px-4 py-2 rounded-lg font-bold text-sm ${isWin
+                                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                                        : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                    }`}>
+                                    {isWin ? 'VICTORY' : 'DEFEAT'}
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-4 text-gray-400">
+                            <span className="flex items-center gap-2">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                {durationMinutes}:{durationSeconds.toString().padStart(2, '0')}
+                            </span>
+                            <span className="flex items-center gap-2">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                {new Date(match.created_at).toLocaleDateString()}
+                            </span>
                         </div>
                     </div>
-                )}
 
-                {/* Actions */}
-                <div className="flex flex-col sm:flex-row gap-4">
-                    <Link to="/upload" className="btn-primary text-center flex-1">
+                    {/* Action Buttons */}
+                    <div className="flex gap-3">
+                        <button
+                            onClick={handleExportPDF}
+                            className="btn-secondary flex items-center gap-2"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Export PDF
+                        </button>
+                        <Link to="/upload" className="btn-primary flex items-center gap-2">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            New Analysis
+                        </Link>
+                    </div>
+                </div>
+
+                {/* Metrics Display */}
+                <MetricsDisplay metrics={match.metrics} />
+
+                {/* Charts */}
+                <Charts metrics={match.metrics} />
+
+                {/* Advice List */}
+                <AdviceList advice={match.advice} />
+
+                {/* Bottom Actions */}
+                <div className="flex flex-col sm:flex-row gap-4 mt-12 pt-8 border-t border-gray-800">
+                    <Link to="/upload" className="btn-primary text-center flex-1 py-4">
                         Analyze Another Match
                     </Link>
-                    <Link to="/coaches" className="btn-secondary text-center flex-1">
+                    <Link to="/coaches" className="btn-secondary text-center flex-1 py-4">
                         Find a Coach
                     </Link>
                 </div>
@@ -112,55 +183,14 @@ export const Results = () => {
     );
 };
 
-interface StatCardProps {
-    label: string;
-    value: string | number;
-    highlight?: boolean;
-}
-
-const StatCard = ({ label, value, highlight }: StatCardProps) => (
-    <div className="card text-center">
-        <p className="text-gray-400 text-sm mb-1">{label}</p>
-        <p className={`text-2xl font-bold ${highlight ? 'text-teal-400' : 'text-white'}`}>
-            {value}
-        </p>
-    </div>
-);
-
-interface InsightCardProps {
-    insight: AnalysisInsight;
-}
-
-const InsightCard = ({ insight }: InsightCardProps) => {
-    const typeConfig = {
-        tip: { bg: 'bg-blue-500/20', text: 'text-blue-400', label: 'Tip' },
-        improvement: { bg: 'bg-yellow-500/20', text: 'text-yellow-400', label: 'Improvement' },
-        strength: { bg: 'bg-green-500/20', text: 'text-green-400', label: 'Strength' },
-        weakness: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'Weakness' },
-    };
-
-    const config = typeConfig[insight.type];
-
-    return (
-        <div className="card">
-            <div className="flex items-start gap-4">
-                <div className={`px-3 py-1 rounded-full text-sm font-medium ${config.bg} ${config.text}`}>
-                    {config.label}
-                </div>
-                <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-white mb-1">{insight.title}</h3>
-                    <p className="text-gray-400">{insight.description}</p>
-                    <p className="text-sm text-gray-500 mt-2">Category: {insight.category}</p>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-function formatDuration(seconds: number): string {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+function extractErrorMessage(err: unknown, fallback: string): string {
+    if (err && typeof err === 'object' && 'response' in err) {
+        const response = (err as { response?: { data?: { detail?: string } } }).response;
+        if (response?.data?.detail) {
+            return response.data.detail;
+        }
+    }
+    return fallback;
 }
 
 export default Results;

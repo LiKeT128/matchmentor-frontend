@@ -7,6 +7,8 @@ import { Register } from './pages/Register';
 import { Upload } from './pages/Upload';
 import { Results } from './pages/Results';
 import { Coaches } from './pages/Coaches';
+import { Pricing } from './pages/Pricing';
+import { Account } from './pages/Account';
 import { useAuth } from './hooks/useAuth';
 import './index.css';
 
@@ -28,6 +30,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/pricing" element={<Pricing />} />
           <Route
             path="/upload"
             element={
@@ -49,6 +52,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Coaches />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/account"
+            element={
+              <ProtectedRoute>
+                <Account />
               </ProtectedRoute>
             }
           />
