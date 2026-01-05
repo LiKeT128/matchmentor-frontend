@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useSubscription } from '../hooks/useSubscription';
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -221,10 +222,10 @@ export const Account = () => {
                                             </td>
                                             <td className="py-4">
                                                 <span className={`px-2 py-1 rounded text-xs font-medium ${item.status === 'paid'
-                                                        ? 'bg-green-500/20 text-green-400'
-                                                        : item.status === 'pending'
-                                                            ? 'bg-yellow-500/20 text-yellow-400'
-                                                            : 'bg-red-500/20 text-red-400'
+                                                    ? 'bg-green-500/20 text-green-400'
+                                                    : item.status === 'pending'
+                                                        ? 'bg-yellow-500/20 text-yellow-400'
+                                                        : 'bg-red-500/20 text-red-400'
                                                     }`}>
                                                     {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
                                                 </span>
@@ -283,7 +284,7 @@ export const Account = () => {
 };
 
 interface FeatureBoxProps {
-    icon: React.ReactNode;
+    icon: ReactNode;
     label: string;
     value: string;
 }

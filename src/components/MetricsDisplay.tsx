@@ -1,10 +1,12 @@
+import type { ReactNode } from 'react';
+
 interface MetricsDisplayProps {
     metrics: Record<string, number | string | undefined>;
 }
 
 interface MetricGroup {
     title: string;
-    icon: React.ReactNode;
+    icon: ReactNode;
     metrics: { key: string; label: string }[];
 }
 
