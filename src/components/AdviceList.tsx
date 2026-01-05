@@ -3,7 +3,7 @@ interface Advice {
     category: string;
     title: string;
     description: string;
-    priority: 'low' | 'medium' | 'high';
+    priority?: string; // Made optional - backend may return invalid/missing values
     type?: 'tip' | 'improvement' | 'strength' | 'weakness';
 }
 
@@ -96,7 +96,7 @@ export const AdviceList = ({ advice }: AdviceListProps) => {
 
                                 {/* Priority Badge */}
                                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${priority.badge}`}>
-                                    {priority.icon} {item.priority.charAt(0).toUpperCase() + item.priority.slice(1)} Priority
+                                    {priority.icon} {validPriority.charAt(0).toUpperCase() + validPriority.slice(1)} Priority
                                 </span>
                             </div>
 
