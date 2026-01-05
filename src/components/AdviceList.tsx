@@ -50,10 +50,16 @@ export const AdviceList = ({ advice }: AdviceListProps) => {
         weakness: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'Weakness' },
     };
 
+    // Helper to get valid priority key
+    const getValidPriority = (p: string | undefined): 'high' | 'medium' | 'low' => {
+        if (p === 'high' || p === 'medium' || p === 'low') return p;
+        return 'low'; // Default to low if invalid/missing
+    };
+
     // Sort advice by priority (high first)
     const sortedAdvice = [...advice].sort((a, b) => {
         const priorityOrder = { high: 0, medium: 1, low: 2 };
-        return priorityOrder[a.priority] - priorityOrder[b.priority];
+        return priorityOrder[getValidPriority(a.priority)] - priorityOrder[getValidPriority(b.priority)];
     });
 
     return (
@@ -66,7 +72,8 @@ export const AdviceList = ({ advice }: AdviceListProps) => {
             </h2>
             <div className="space-y-4">
                 {sortedAdvice.map((item, index) => {
-                    const priority = priorityConfig[item.priority];
+                    const validPriority = getValidPriority(item.priority);
+                    const priority = priorityConfig[validPriority];
                     const type = item.type ? typeConfig[item.type] : null;
 
                     return (
