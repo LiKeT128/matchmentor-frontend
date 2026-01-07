@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { LoadingSpinner } from '../components/LoadingSpinner';
+import { HeroSelectionModal } from '../components/HeroSelectionModal';
 
 export const Upload = () => {
     const [file, setFile] = useState<File | null>(null);
@@ -9,6 +10,12 @@ export const Upload = () => {
     const [error, setError] = useState<string | null>(null);
     const [dragActive, setDragActive] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
+
+    // Hero Selection State
+    const [showHeroModal, setShowHeroModal] = useState(false);
+    const [pendingMatchId, setPendingMatchId] = useState("");
+    const [matchHeroes, setMatchHeroes] = useState<any[]>([]);
+
     const navigate = useNavigate();
 
     const handleDrag = (e: React.DragEvent) => {
@@ -80,6 +87,13 @@ export const Upload = () => {
                 },
             });
 
+            if (data.status === "awaiting_hero_selection") {
+                setPendingMatchId(data.match_id);
+                setMatchHeroes(data.heroes_in_match);
+                setShowHeroModal(true);
+                return;
+            }
+
             navigate(`/results/${data.match_id}`);
         } catch (err: unknown) {
             const message = extractErrorMessage(err, 'Upload failed');
@@ -93,6 +107,12 @@ export const Upload = () => {
         setFile(null);
         setError(null);
         setUploadProgress(0);
+    };
+
+    const handleHeroSelected = (heroData: any) => {
+        setShowHeroModal(false);
+        // data.match_id might be needed if the response structure changes, but reusing pendingMatchId is safe if response doesn't have it
+        navigate(`/results/${heroData.match_id || pendingMatchId}`);
     };
 
     return (
@@ -252,6 +272,15 @@ export const Upload = () => {
                     </div>
                 </div>
             </div>
+
+            {showHeroModal && (
+                <HeroSelectionModal
+                    match_id={pendingMatchId}
+                    heroes={matchHeroes}
+                    onHeroSelected={handleHeroSelected}
+                    loading={false}
+                />
+            )}
         </div>
     );
 };
