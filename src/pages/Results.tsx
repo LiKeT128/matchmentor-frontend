@@ -8,12 +8,17 @@ import { AdviceList } from '../components/AdviceList';
 
 interface Match {
     id: number;
+    match_id: string;
     hero: string;
+    selected_hero_name?: string;
     duration: number;
     result?: 'win' | 'loss';
     metrics: Record<string, number>;
     advice: Advice[];
     created_at: string;
+    parsed_data?: {
+        heroes?: string[];
+    };
 }
 
 interface Advice {
@@ -29,28 +34,50 @@ export const Results = () => {
     const { matchId } = useParams<{ matchId: string }>();
     const [match, setMatch] = useState<Match | null>(null);
     const [loading, setLoading] = useState(true);
+    const [selecting, setSelecting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showSelector, setShowSelector] = useState(false);
+
+    const fetchMatch = async (id: string) => {
+        try {
+            const { data } = await api.get(`/api/matches/${id}`);
+            setMatch(data);
+            // If no hero is selected yet, show the selector
+            if (!data.selected_hero_name) {
+                setShowSelector(true);
+            }
+        } catch (err: unknown) {
+            const message = extractErrorMessage(err, 'Failed to load match');
+            setError(message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchMatch = async () => {
-            try {
-                const { data } = await api.get(`/api/matches/${matchId}`);
-                setMatch(data);
-            } catch (err: unknown) {
-                const message = extractErrorMessage(err, 'Failed to load match');
-                setError(message);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         if (matchId) {
-            fetchMatch();
+            fetchMatch(matchId);
         }
     }, [matchId]);
 
+    const handleSelectHero = async (heroName: string) => {
+        if (!matchId) return;
+        setSelecting(true);
+        try {
+            const { data } = await api.post(`/api/matches/${matchId}/select-hero`, {
+                selected_hero_name: heroName
+            });
+            setMatch(data);
+            setShowSelector(false);
+        } catch (err: unknown) {
+            const message = extractErrorMessage(err, 'Failed to select hero');
+            alert(message);
+        } finally {
+            setSelecting(false);
+        }
+    };
+
     const handleExportPDF = () => {
-        // PDF export logic - could use jsPDF or call backend
         window.print();
     };
 
@@ -107,6 +134,13 @@ export const Results = () => {
     const durationMinutes = Math.floor(match.duration / 60);
     const durationSeconds = match.duration % 60;
 
+    const allHeroes = [
+        match.hero,
+        ...(match.parsed_data?.heroes || [])
+    ].filter((h, i, arr) => arr.indexOf(h) === i);
+
+    const currentHero = match.selected_hero_name || match.hero;
+
     return (
         <div className="min-h-screen bg-gray-900 pt-24 pb-12 px-4">
             <div className="max-w-6xl mx-auto">
@@ -114,11 +148,14 @@ export const Results = () => {
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-10">
                     <div>
                         <div className="flex items-center gap-4 mb-3">
-                            <h1 className="text-4xl font-bold text-white">{match.hero}</h1>
+                            <div className="flex flex-col">
+                                <span className="text-teal-400 text-xs font-bold uppercase tracking-wider mb-1">Analyzing Hero</span>
+                                <h1 className="text-4xl font-bold text-white">{currentHero.replace('npc_dota_hero_', '').replace(/_/g, ' ')}</h1>
+                            </div>
                             {match.result && (
-                                <span className={`px-4 py-2 rounded-lg font-bold text-sm ${isWin
-                                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                                        : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                <span className={`px-4 py-2 rounded-lg font-bold text-sm h-fit self-end mb-1 ${isWin
+                                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                                    : 'bg-red-500/20 text-red-400 border border-red-500/30'
                                     }`}>
                                     {isWin ? 'VICTORY' : 'DEFEAT'}
                                 </span>
@@ -137,6 +174,12 @@ export const Results = () => {
                                 </svg>
                                 {new Date(match.created_at).toLocaleDateString()}
                             </span>
+                            <button
+                                onClick={() => setShowSelector(!showSelector)}
+                                className="text-teal-400 hover:text-teal-300 text-sm font-semibold underline decoration-2 underline-offset-4 ml-2"
+                            >
+                                {showSelector ? 'Close Selector' : 'Change Hero'}
+                            </button>
                         </div>
                     </div>
 
@@ -159,6 +202,59 @@ export const Results = () => {
                         </Link>
                     </div>
                 </div>
+
+                {/* Hero Selector */}
+                {showSelector && (
+                    <div className="mb-10 p-6 bg-gray-800/50 border border-gray-700 rounded-2xl relative">
+                        <h3 className="text-xl font-bold text-white mb-6">Select Hero to Analyze</h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-5 md:grid-cols-10 gap-3">
+                            {allHeroes.map(hero => {
+                                const heroShortName = hero.replace('npc_dota_hero_', '');
+                                return (
+                                    <button
+                                        key={hero}
+                                        onClick={() => handleSelectHero(hero)}
+                                        disabled={selecting}
+                                        className={`
+                                            group relative flex flex-col items-center gap-2 p-2 rounded-xl border-2 transition-all
+                                            ${currentHero === hero
+                                                ? 'border-teal-500 bg-teal-500/10'
+                                                : 'border-transparent hover:border-gray-600 bg-gray-900/50'
+                                            }
+                                        `}
+                                    >
+                                        <div className="relative w-full aspect-[128/72] overflow-hidden rounded-lg">
+                                            <img
+                                                src={`https://api.opendota.com/apps/dota2/images/heroes/${heroShortName}_full.png`}
+                                                alt={heroShortName}
+                                                className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                                                onError={(e) => {
+                                                    (e.target as HTMLImageElement).src = 'https://via.placeholder.com/128x72?text=Hero';
+                                                }}
+                                            />
+                                            {currentHero === hero && (
+                                                <div className="absolute inset-0 bg-teal-500/20 flex items-center justify-center">
+                                                    <svg className="w-8 h-8 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <span className={`text-[10px] font-bold uppercase truncate w-full text-center ${currentHero === hero ? 'text-teal-400' : 'text-gray-400 group-hover:text-gray-200'}`}>
+                                            {heroShortName.replace(/_/g, ' ')}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {selecting && (
+                            <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center gap-4 z-10 transition-opacity">
+                                <LoadingSpinner size="md" />
+                                <span className="text-white font-semibold">Updating Analysis...</span>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Metrics Display */}
                 <MetricsDisplay metrics={match.metrics} />
