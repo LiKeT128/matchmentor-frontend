@@ -10,14 +10,15 @@ interface Match {
     id: number;
     match_id: string;
     hero: string;
-    selected_hero_name?: string;
+    hero_name?: string; // Alternative from backend
+    selected_hero_name?: string | null;
     duration: number;
     result?: 'win' | 'loss';
     metrics: Record<string, number>;
     advice: Advice[];
     created_at: string;
     parsed_data?: {
-        heroes?: string[];
+        heroes?: string[] | null;
     };
 }
 
@@ -30,6 +31,12 @@ interface Advice {
     type?: 'tip' | 'improvement' | 'strength' | 'weakness';
 }
 
+// Utility to safely clean hero names
+const cleanHeroName = (heroStr: string | null | undefined): string => {
+    if (!heroStr || typeof heroStr !== 'string') return 'Unknown Hero';
+    return heroStr.replace('npc_dota_hero_', '').replace(/_/g, ' ');
+};
+
 export const Results = () => {
     const { matchId } = useParams<{ matchId: string }>();
     const [match, setMatch] = useState<Match | null>(null);
@@ -41,6 +48,10 @@ export const Results = () => {
     const fetchMatch = async (id: string) => {
         try {
             const { data } = await api.get(`/api/matches/${id}`);
+            console.log('Match data received:', data);
+            console.log('selected_hero_name:', data.selected_hero_name);
+            console.log('heroes in match:', data.parsed_data?.heroes);
+
             setMatch(data);
             // If no hero is selected yet, show the selector
             if (!data.selected_hero_name) {
@@ -64,9 +75,11 @@ export const Results = () => {
         if (!matchId) return;
         setSelecting(true);
         try {
+            console.log('Selecting hero:', heroName);
             const { data } = await api.post(`/api/matches/${matchId}/select-hero`, {
                 selected_hero_name: heroName
             });
+            console.log('Selection response:', data);
             setMatch(data);
             setShowSelector(false);
         } catch (err: unknown) {
@@ -134,12 +147,14 @@ export const Results = () => {
     const durationMinutes = Math.floor(match.duration / 60);
     const durationSeconds = match.duration % 60;
 
+    // Defensive hero extraction
     const allHeroes = [
-        match.hero,
+        match.hero_name || match.hero,
         ...(match.parsed_data?.heroes || [])
-    ].filter((h, i, arr) => arr.indexOf(h) === i);
+    ].filter((h): h is string => typeof h === 'string' && h.trim().length > 0)
+        .filter((h, i, arr) => arr.indexOf(h) === i);
 
-    const currentHero = match.selected_hero_name || match.hero;
+    const currentHero = match.selected_hero_name || match.hero_name || match.hero;
 
     return (
         <div className="min-h-screen bg-gray-900 pt-24 pb-12 px-4">
@@ -150,7 +165,9 @@ export const Results = () => {
                         <div className="flex items-center gap-4 mb-3">
                             <div className="flex flex-col">
                                 <span className="text-teal-400 text-xs font-bold uppercase tracking-wider mb-1">Analyzing Hero</span>
-                                <h1 className="text-4xl font-bold text-white">{currentHero.replace('npc_dota_hero_', '').replace(/_/g, ' ')}</h1>
+                                <h1 className="text-4xl font-bold text-white">
+                                    {cleanHeroName(currentHero)}
+                                </h1>
                             </div>
                             {match.result && (
                                 <span className={`px-4 py-2 rounded-lg font-bold text-sm h-fit self-end mb-1 ${isWin
